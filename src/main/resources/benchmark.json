@@ -1,0 +1,53 @@
+[
+  {
+    "benchmarkName": "test",
+    "benchamrkSourcePaths": "/home/whz/ParquetWriter/input",
+    "schema": {
+      "test1": ["int32","int32","float"],
+      "test2": ["boolean","int32","int64","double"]
+    },
+    "columnNames": {
+      "test1": ["test1_1_int32","test1_2_int32","test1_3_float"],
+      "test2": ["test2_2_boolean","test2_2_int32","test2_3_int64","test2_4_double"]
+    },
+    "numRows": {
+      "test1": 10,
+      "test2": 20
+    },
+    "delimiter": ","
+  },
+  {
+    "benchmarkName": "tpch",
+    "benchamrkSourcePaths": "/home/whz/testData/",
+    "schema": {
+      "test1": ["int32","int32","float"],
+      "test2": ["boolean","int32","int64","double"]
+    },
+    "columnNames": {
+      "test1": ["test1_1_int32","test1_2_int32","test1_3_float"],
+      "test2": ["test2_2_boolean","test2_2_int32","test2_3_int64","test2_4_double"]
+    },
+    "numRows": {
+      "test1": 10,
+      "test2": 20
+    },
+    "delimiter": ","
+  },
+  {
+    "benchmarkName": "clickbench",
+    "benchamrkSourcePaths": "/home/whz/testData/",
+    "schema": {
+      "test1": ["int32","int32","float"],
+      "test2": ["boolean","int32","int64","double"]
+    },
+    "columnNames": {
+      "test1": ["test1_1_int32","test1_2_int32","test1_3_float"],
+      "test2": ["test2_2_boolean","test2_2_int32","test2_3_int64","test2_4_double"]
+    },
+    "numRows": {
+      "test1": 10,
+      "test2": 20
+    },
+    "delimiter": ","
+  }
+]
