@@ -16,6 +16,9 @@
 split -l 30 test1.csv ./test1/test1-csv-
 split -l 40 test2.csv ./test2/test2-csv-
 
+#clickbench 
+split -l 156250 hits.tsv ./hits/hits-tcv-
+
 ```
 
 ## 参考

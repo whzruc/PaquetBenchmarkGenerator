@@ -5,20 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f64af2e6-f560-4979-bc4a-e442bd193a04" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/README-zn.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/spilt.sh" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/resources/log4j.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/input/test1/test1.csv" beforeDir="false" afterPath="$PROJECT_DIR$/input/test1.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/input/test2/test2.csv" beforeDir="false" afterPath="$PROJECT_DIR$/input/test2.csv" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/BenchmarkInfo.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/BenchmarkInfo.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/Main.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/Main.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/ParquetChunkWriter.java" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/resources/benchmark.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/benchmark.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README-zn.md" beforeDir="false" afterPath="$PROJECT_DIR$/README-zn.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -60,31 +50,38 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;Application.MultiThreadCSVReader.executor&quot;: &quot;Run&quot;,
-    &quot;Application.ParquetChunkWriter.executor&quot;: &quot;Debug&quot;,
-    &quot;Maven.MultiThreadFileProcessing.executor&quot;: &quot;Run&quot;,
-    &quot;Maven.ParquetChunkWriter.executor&quot;: &quot;Run&quot;,
-    &quot;Maven.ParquetWriter [clean].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.ParquetWriter [install,--non-recursive].executor&quot;: &quot;Run&quot;,
-    &quot;Maven.ParquetWriter [install].executor&quot;: &quot;Run&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
-    &quot;Spring Boot.Main.executor&quot;: &quot;Run&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;Artifacts&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Application.MultiThreadCSVReader.executor": "Run",
+    "Application.ParquetChunkWriter.executor": "Debug",
+    "Maven.MultiThreadFileProcessing (1).executor": "Run",
+    "Maven.MultiThreadFileProcessing (2).executor": "Run",
+    "Maven.MultiThreadFileProcessing (3).executor": "Run",
+    "Maven.MultiThreadFileProcessing.executor": "Run",
+    "Maven.ParquetChunkWriter.executor": "Run",
+    "Maven.ParquetWriter [clean].executor": "Run",
+    "Maven.ParquetWriter [install,--non-recursive].executor": "Run",
+    "Maven.ParquetWriter [install].executor": "Run",
+    "RequestMappingsPanelOrder0": "0",
+    "RequestMappingsPanelOrder1": "1",
+    "RequestMappingsPanelWidth0": "75",
+    "RequestMappingsPanelWidth1": "75",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "Spring Boot.Main.executor": "Run",
+    "git-widget-placeholder": "master",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "Project",
+    "project.structure.proportion": "0.0",
+    "project.structure.side.proportion": "0.2",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RdControllerToolWindowsLayoutState" isNewUi="true">
     <layout>
       <window_info id="Bookmarks" side_tool="true" />
@@ -92,7 +89,7 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.18964843" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21660157" />
       <window_info id="Commit" order="1" weight="0.25" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
@@ -103,10 +100,10 @@
       <window_info anchor="bottom" id="Version Control" order="0" />
       <window_info anchor="bottom" id="Problems" order="1" />
       <window_info anchor="bottom" id="Problems View" order="2" />
-      <window_info active="true" anchor="bottom" id="Terminal" order="3" visible="true" weight="0.55661714" />
-      <window_info anchor="bottom" id="Build" order="4" weight="0.33014864" />
-      <window_info anchor="bottom" id="Debug" order="5" weight="0.37048835" />
-      <window_info anchor="bottom" x="-136" y="1209" width="2478" height="243" id="Run" order="6" weight="0.5665251" />
+      <window_info anchor="bottom" id="Terminal" order="3" weight="0.40728945" />
+      <window_info anchor="bottom" id="Build" order="4" weight="0.40728945" />
+      <window_info anchor="bottom" id="Debug" order="5" weight="0.618896" />
+      <window_info active="true" anchor="bottom" x="-136" y="1209" width="2478" height="243" id="Run" order="6" visible="true" weight="0.5212314" />
       <window_info anchor="bottom" id="Services" order="7" />
       <window_info anchor="right" id="Endpoints" />
       <window_info anchor="right" id="Coverage" side_tool="true" />
@@ -115,13 +112,89 @@
       <window_info anchor="right" id="AIAssistant" order="1" weight="0.25" />
       <window_info anchor="right" id="Database" order="2" weight="0.25" />
       <window_info anchor="right" id="Gradle" order="3" weight="0.25" />
-      <window_info active="true" anchor="right" id="Maven" order="4" visible="true" weight="0.019335937" />
+      <window_info active="true" anchor="right" id="Maven" order="4" visible="true" weight="0.011914062" />
     </layout>
   </component>
   <component name="RecentsManager">
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/input" />
     </key>
+  </component>
+  <component name="RunManager" selected="Application.MultiThreadFileProcessing (3)">
+    <configuration name="MultiThreadFileProcessing (1)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="org.example.MultiThreadFileProcessing" />
+      <module name="ParquetWriter" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.example.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="MultiThreadFileProcessing (2)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="org.example.MultiThreadFileProcessing" />
+      <module name="ParquetWriter" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.example.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="MultiThreadFileProcessing (3)" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="org.example.MultiThreadFileProcessing" />
+      <module name="ParquetWriter" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.example.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="MultiThreadFileProcessing" type="Application" factoryName="Application" temporary="true" nameIsGenerated="true">
+      <option name="MAIN_CLASS_NAME" value="org.example.MultiThreadFileProcessing" />
+      <module name="ParquetWriter" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.example.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Main" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" temporary="true" nameIsGenerated="true">
+      <module name="ParquetWriter" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="org.example.Main" />
+      <extension name="coverage">
+        <pattern>
+          <option name="PATTERN" value="org.example.*" />
+          <option name="ENABLED" value="true" />
+        </pattern>
+      </extension>
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Application.MultiThreadFileProcessing (3)" />
+        <item itemvalue="Application.MultiThreadFileProcessing (2)" />
+        <item itemvalue="Application.MultiThreadFileProcessing (1)" />
+        <item itemvalue="Application.MultiThreadFileProcessing" />
+        <item itemvalue="Spring Boot.Main" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="SharedIndexes">
     <attachedChunks>
@@ -142,7 +215,8 @@
       <workItem from="1734872963946" duration="34315000" />
       <workItem from="1735002271675" duration="35848000" />
       <workItem from="1735095296430" duration="1338000" />
-      <workItem from="1735097107406" duration="3054000" />
+      <workItem from="1735097107406" duration="8751000" />
+      <workItem from="1735111481682" duration="11073000" />
     </task>
     <servers />
   </component>
@@ -156,6 +230,21 @@
           <properties class="java.lang.IllegalArgumentException" package="java.lang" />
           <option name="timeStamp" value="2" />
         </breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java</url>
+          <line>291</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java</url>
+          <line>330</line>
+          <option name="timeStamp" value="11" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="java-line">
+          <url>file://$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java</url>
+          <line>399</line>
+          <option name="timeStamp" value="12" />
+        </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
   </component>

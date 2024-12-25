@@ -52,10 +52,10 @@ public class MultiThreadFileProcessing {
     private Map<String, List<String>> benchmarkInfoSchema;
     private Map<String, Integer> benchmarkInfoNumRows;
     private List<String> inputFilePaths;
-    private String outputPath;
+    private String benchmarkOutputPath;
     private String delimiter;
     private Configuration conf;
-    private TrackingByteBufferAllocator allocator;
+
     private Properties properties;
     private Map<String,AtomicInteger> number = new HashMap<>();
     private ReentrantLock lock = new ReentrantLock();
@@ -67,17 +67,17 @@ public class MultiThreadFileProcessing {
                                      String outputPath,
                                      String delimiter,
                                      Configuration conf,
-                                     Properties props,
-                                     TrackingByteBufferAllocator allocator) {
+                                     Properties props
+                                     ) {
         this.benchmarkInfoColumnNames = benchmarkInfoColumnNames;
         this.benchmarkInfoSchema = benchmarkInfoSchema;
         this.benchmarkInfoNumRows = benchmarkInfoNumRows;
         this.inputFilePaths = inputFilePaths;
-        this.outputPath = outputPath;
+        this.benchmarkOutputPath = outputPath;
         this.delimiter = delimiter;
         this.conf = conf;
         this.properties = props;
-        this.allocator = allocator;
+//        this.outputPath
         for(String columnName : benchmarkInfoSchema.keySet()) {
             number.put(columnName, new AtomicInteger(0));
         }
@@ -85,128 +85,133 @@ public class MultiThreadFileProcessing {
 
     }
 
-    private String ParquetLocgicalTypes(String columnType, String columnName) {
-        ParquetChunkWriter.ColumnInfo columnInfo=parseColumnType(columnType);
-
-        switch (columnInfo.columnType){
-            case "boolean":
-                return "boolean "+columnName;
-            case "decimal":
-                return "binary "+columnName+" (DECIMAL("+columnInfo.param1+","+columnInfo.param2+"))";
-//            case "char":
-//            case "varchar":
-//                return "fixed_len_byte_array("+columnInfo.param1+") "+columnName;
-            case "integer":
-            case "int32":
-                return "int32 "+columnName;
-            case "bigint":
-            case "int64":
-                return "int64 "+columnName;
-            case "float":
-                return "float "+columnName;
-            case "double":
-                return "double "+columnName;
-            case "char":
-            case "varchar":
-            case "string":
-                return "binary "+columnName+" (STRING)";
-            case "timestamp":
-                return "int64 "+columnName+" (TIMESTAMP_MILLIS)";
-            case "date":
-                return "int32 "+columnName+" (DATE)";
-            default:
-                return columnType;
-        }
-    }
-    private ParquetChunkWriter.ColumnInfo parseColumnType(String columnType) {
-        String columnTypeName = columnType;
-        String param1 = "";
-        String param2 = "";
-
-        Pattern pattern = Pattern.compile("\\((.*?)\\)");
-        Matcher matcher = pattern.matcher(columnType);
-        if (matcher.find()) {
-            String[] params = matcher.group(1).split(",");
-            if (params.length > 0) {
-                param1 = params[0].trim();
-            }
-            if (params.length > 1) {
-                param2 = params[1].trim();
-            }
-            columnTypeName = columnType.substring(0, columnType.indexOf('(')).trim();
-        }
-
-        return new ParquetChunkWriter.ColumnInfo(columnTypeName, param1, param2);
-    }
-
-    private void convertValue(Group group, String columnName, String columnType, String valueStr) {
-        ParquetChunkWriter.ColumnInfo columnInfo=parseColumnType(columnType);
-//        System.out.println(columnInfo.toString());
-        switch (columnInfo.columnType) {
-            case "date":
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                try {
-                    Date date = sdf.parse(valueStr);
-                    long timestamp = date.getTime();
-                    // data truncation may occur
-                    int intValue = (int) (timestamp & 0xFFFFFFFFL);
-//                    System.out.println("convert int: " + intValue);
-                    group.append(columnName,intValue);
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-                break;
-            case "int32":
-            case "integer":
-                group.append(columnName, Integer.parseInt(valueStr));
-                break;
-            case "timestamp":
-                SimpleDateFormat sdf_timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-                try{
-                    Date date=sdf_timestamp.parse(valueStr);
-                    long timestamp=date.getTime();
-                    group.append(columnName,timestamp);
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-                break;
-            case "int64":
-            case "bigint":
-                group.append(columnName, Long.parseLong(valueStr));
-                break;
-            case "float":
-                group.append(columnName,Float.parseFloat(valueStr));
-                break;
-            case "double":
-                group.append(columnName,Double.parseDouble(valueStr));
-                break;
-            case "boolean":
-                group.append(columnName,Boolean.parseBoolean(valueStr));
-                break;
-            case "binary":
-            case "decimal":
-                group.append(columnName, Binary.fromString(valueStr));
-                break;
-            case "fixed_len_byte_array":
-            case "char":
-            case "varchar":
-                group.append(columnName,valueStr);
-                break;
-            default:
-                group.append(columnName,valueStr);
-        }
-    }
-
     private class FileReadAndProcessTask implements Callable<Void> {
+        private boolean initParquetWriter;
         private String inputFilePath;
         private ThreadLocal<Group> threadLocalGroup;
+        private ThreadLocal<ParquetWriter<Group>> threadLocalParquetWriter;
+        ParquetWriter<Group> writer = null;
+        private TrackingByteBufferAllocator allocator;
+        private int counts=0;
+        private int totalCounts=0;
 
-
+        private void convertValue(Group group, String columnName, String columnType, String valueStr) {
+            ParquetChunkWriter.ColumnInfo columnInfo=parseColumnType(columnType);
+//        System.out.println(columnInfo.toString());
+            switch (columnInfo.columnType) {
+                case "date":
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                    try {
+                        Date date = sdf.parse(valueStr);
+                        long timestamp = date.getTime();
+                        // data truncation may occur
+                        int intValue = (int) (timestamp & 0xFFFFFFFFL);
+//                    System.out.println("convert int: " + intValue);
+                        group.append(columnName,intValue);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                case "int32":
+                case "integer":
+                    group.append(columnName, Integer.parseInt(valueStr));
+                    break;
+                case "timestamp":
+                    SimpleDateFormat sdf_timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    try{
+                        Date date=sdf_timestamp.parse(valueStr);
+                        long timestamp=date.getTime();
+                        group.append(columnName,timestamp);
+                    } catch (ParseException e) {
+                        e.printStackTrace();
+                    }
+                    break;
+                case "int64":
+                case "bigint":
+                    group.append(columnName, Long.parseLong(valueStr));
+                    break;
+                case "float":
+                    group.append(columnName,Float.parseFloat(valueStr));
+                    break;
+                case "double":
+                    group.append(columnName,Double.parseDouble(valueStr));
+                    break;
+                case "boolean":
+                    group.append(columnName,Boolean.parseBoolean(valueStr));
+                    break;
+                case "binary":
+                case "decimal":
+                    group.append(columnName, Binary.fromString(valueStr));
+                    break;
+                case "fixed_len_byte_array":
+                case "char":
+                case "varchar":
+                    group.append(columnName,valueStr);
+                    break;
+                default:
+                    group.append(columnName,valueStr);
+            }
+        }
         public FileReadAndProcessTask(String inputFilePath) {
             this.inputFilePath = inputFilePath;
             this.threadLocalGroup = new ThreadLocal<>();
+            this.threadLocalParquetWriter = new ThreadLocal<>();
+            this.allocator=TrackingByteBufferAllocator.wrap(new HeapByteBufferAllocator());
+            this.initParquetWriter = true;
         }
+        private String ParquetLocgicalTypes(String columnType, String columnName) {
+            ParquetChunkWriter.ColumnInfo columnInfo=parseColumnType(columnType);
 
+            switch (columnInfo.columnType){
+                case "boolean":
+                    return "boolean "+columnName;
+                case "decimal":
+                    return "binary "+columnName+" (DECIMAL("+columnInfo.param1+","+columnInfo.param2+"))";
+//            case "char":
+//            case "varchar":
+//                return "fixed_len_byte_array("+columnInfo.param1+") "+columnName;
+                case "integer":
+                case "int32":
+                    return "int32 "+columnName;
+                case "bigint":
+                case "int64":
+                    return "int64 "+columnName;
+                case "float":
+                    return "float "+columnName;
+                case "double":
+                    return "double "+columnName;
+                case "char":
+                case "varchar":
+                case "string":
+                    return "binary "+columnName+" (STRING)";
+                case "timestamp":
+                    return "int64 "+columnName+" (TIMESTAMP_MILLIS)";
+                case "date":
+                    return "int32 "+columnName+" (DATE)";
+                default:
+                    return columnType;
+            }
+        }
+        private ParquetChunkWriter.ColumnInfo parseColumnType(String columnType) {
+            String columnTypeName = columnType;
+            String param1 = "";
+            String param2 = "";
+
+            Pattern pattern = Pattern.compile("\\((.*?)\\)");
+            Matcher matcher = pattern.matcher(columnType);
+            if (matcher.find()) {
+                String[] params = matcher.group(1).split(",");
+                if (params.length > 0) {
+                    param1 = params[0].trim();
+                }
+                if (params.length > 1) {
+                    param2 = params[1].trim();
+                }
+                columnTypeName = columnType.substring(0, columnType.indexOf('(')).trim();
+            }
+
+            return new ParquetChunkWriter.ColumnInfo(columnTypeName, param1, param2);
+        }
         @Override
         public Void call() throws Exception {
             String tableName = getTableNameFromPath(inputFilePath);
@@ -216,14 +221,14 @@ public class MultiThreadFileProcessing {
             List<String> columnTyps = benchmarkInfoSchema.get(tableName);
             Integer maxNumRows = benchmarkInfoNumRows.get(tableName);
             long rowGroupSize = Long.parseLong(properties.getProperty("RowGroupSize"));
-            String outputPath = properties.getProperty("OutPutPath");
+            String outputPath =benchmarkOutputPath;
             CompressionCodecName compressionCodecName = CompressionCodecName.fromConf(
                     properties.getProperty("Compression"));
             String encoding = properties.getProperty("Encoding");
 
-            long startTime = System.currentTimeMillis();
-            int counts = 0;
-            int totalCounts = 0;
+//            long startTime = System.currentTimeMillis();
+//            int counts = 0;
+//            int totalCounts = 0;
 
             String[] columnNamesString = new String[columnNames.size()];
             String messageTypeString = "message " + tableName + " {";
@@ -240,29 +245,29 @@ public class MultiThreadFileProcessing {
             initThreadLocalGroup(schemaMessage);
 
             try (BufferedReader reader = Files.newBufferedReader(Paths.get(inputFilePath))) {
-                boolean initParquetWriter = true;
+                
                 GroupWriteSupport.setSchema(schemaMessage, conf);
                 SimpleGroupFactory f = new SimpleGroupFactory(schemaMessage);
-//                Group group = f.newGroup();
-                ParquetWriter<Group> writer = null;
+                Group group = f.newGroup();
+
                 String line;
                 while ((line = reader.readLine())!= null) {
                     String[] str = line.split(delimiter);
                     counts++;
                     totalCounts++;
-                    synchronized (threadLocalGroup.get()) {
+//                    synchronized (this) {
+//                    lock.lock();
+//                    // build ParquetWriter
+//                    try {
                         for (int i = 0; i < columnNames.size(); i++) {
                             convertValue(threadLocalGroup.get(), columnNames.get(i), columnTyps.get(i), str[i]);
                         }
                         if (initParquetWriter || counts == maxNumRows) {
-
+                            Path outputFilePath=null;
                             lock.lock();
-                            // build ParquetWriter
-                            try {
-
-
-                                Path outputFilePath = Paths.get(outputPath + "/" + tableName + "/" + tableName + "_" + number.get(tableName) + ".parquet");
-                                number.get(tableName).incrementAndGet();
+                                    outputFilePath = Paths.get(outputPath + "/" + tableName + "/" + tableName + "_" + number.get(tableName) + ".parquet");
+                                    number.get(tableName).incrementAndGet();
+                            lock.unlock();
                                 if (Files.exists(outputFilePath)) {
                                     Files.delete(outputFilePath);
                                 }
@@ -277,37 +282,52 @@ public class MultiThreadFileProcessing {
                                 counts = 0;
                                 initParquetWriter = false;
                                 System.out.println(outputFilePath);
-                                if (writer != null) {
-                                    writer.close();
+                                if (threadLocalParquetWriter.get() != null) {
+
+
+                                    threadLocalParquetWriter.get().close();
                                 }
-                                writer = ExampleParquetWriter.builder(new LocalOutputFile(outputFilePath))
-                                        .withAllocator(allocator)
+                                threadLocalParquetWriter.set(ExampleParquetWriter.builder(new LocalOutputFile(outputFilePath))
+                                        .withAllocator(this.allocator)
                                         .withCompressionCodec(compressionCodecName)
                                         .withDictionaryEncoding(false)
                                         .withRowGroupSize(rowGroupSize)
                                         .withPageSize(1024)
                                         .withValidation(false)
                                         .withWriterVersion(WriterVersion.PARQUET_2_0)
+                                        .withType(schemaMessage)
                                         .withConf(conf)
-                                        .build();
+                                        .build());
 
-                                System.out.println("\n" + Thread.currentThread().getName() + "\n " + outputFilePath + "\n" + threadLocalGroup.get().toString());
-                                writer.write(threadLocalGroup.get());
-                                initThreadLocalGroup(schemaMessage);
+//                                System.out.println("\n" + Thread.currentThread().getName() + "\n " + outputFilePath + "\n" + threadLocalGroup.get().toString());
+//                            lock.lock();
+                                    threadLocalParquetWriter.get().write(threadLocalGroup.get());
+                                    lock.lock();
+                                    initThreadLocalGroup(schemaMessage);
+                            lock.unlock();
+//                                writer.write(group);
 //                                group = f.newGroup();
-                            } finally {
-                                lock.unlock();
-                            }
+
 
                         } else {
-                            writer.write(threadLocalGroup.get());
-                            initThreadLocalGroup(schemaMessage);
+//                            System.out.println("\n" + Thread.currentThread().getName() + "\n " + threadLocalGroup.get().toString());
+                            lock.lock();
+                                threadLocalParquetWriter.get().write(threadLocalGroup.get());
+//                                lock.lock();
+                                initThreadLocalGroup(schemaMessage);
+                            lock.unlock();
+//                            writer.write(group);
 //                            group = f.newGroup();
                         }
+//                    } finally {
+//                        lock.unlock();
+//                    }
 
-                    }
-                    writer.close();
+//                  }
+
                 }
+                threadLocalParquetWriter.get().close();
+                this.allocator.close();
             } catch (IOException e) {
 //                System.out.println(Thread.currentThread().getName());
                 LOGGER.error(Thread.currentThread().getName(), e);
@@ -320,7 +340,7 @@ public class MultiThreadFileProcessing {
                 throw new RuntimeException(e);
             }
 
-//            System.out.println("Finish convert table " + tableName + " parse counts: " + totalCounts);
+            System.out.println("Finish convert table " + tableName + " parse counts: " + totalCounts);
 //            long endTime = System.currentTimeMillis();
 //            long elapsedTime = endTime - startTime;
 //            System.out.println("Execution time of the program is " + elapsedTime);
@@ -347,8 +367,8 @@ public class MultiThreadFileProcessing {
     }
 
     public void processFiles() {
-        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
-//        ExecutorService executorService = Executors.newFixedThreadPool(1);
+//        ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
         List<Future<Void>> futures = new ArrayList<>();
 
         for (String inputFilePath : inputFilePaths) {
@@ -421,11 +441,11 @@ public class MultiThreadFileProcessing {
 
         // read benchmark.json
         List<BenchmarkInfo> benchmarkInfos = readBenchmarkInfosFromJson(benchmarkResource.getPath());
-        String targetSchemaName="test";
+        String targetSchemaName="clickbench";
         BenchmarkInfo foundBenchmarkInfo = findBenchmarkInfoByName(benchmarkInfos, targetSchemaName);
         // read config.properties
         Properties properties = readProperties(propertiesResource.getPath());
-        String outputPath = properties.getProperty("OutPutPath");
+        String outputPath = foundBenchmarkInfo.getOutputPath();
         Map<String, List<String>> benchmarkInfoColumnNames = new HashMap<>();
         Map<String, List<String>> benchmarkInfoSchema = new HashMap<>();
         Map<String, Integer> benchmarkInfoNumRows = new HashMap<>();
@@ -457,7 +477,7 @@ public class MultiThreadFileProcessing {
         System.out.println(inputFilePaths);
         long startTime = System.currentTimeMillis();
         MultiThreadFileProcessing processor = new MultiThreadFileProcessing(benchmarkInfoColumnNames,
-                benchmarkInfoSchema, benchmarkInfoNumRows, inputFilePaths, outputPath, delimiter, conf, properties,allocator);
+                benchmarkInfoSchema, benchmarkInfoNumRows, inputFilePaths, outputPath, delimiter, conf, properties);
         processor.processFiles();
         long endTime = System.currentTimeMillis();
         System.out.println("Execution Time: "+(endTime - startTime));
