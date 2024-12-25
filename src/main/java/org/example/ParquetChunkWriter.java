@@ -6,12 +6,18 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
+import org.apache.parquet.bytes.HeapByteBufferAllocator;
+import org.apache.parquet.bytes.TrackingByteBufferAllocator;
 import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.example.data.simple.SimpleGroupFactory;
+import org.apache.parquet.filter2.predicate.Operators;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.example.ExampleParquetWriter;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 import org.apache.parquet.io.LocalOutputFile;
+import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.MessageTypeParser;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
@@ -19,6 +25,7 @@ import org.apache.parquet.example.data.Group;
 
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
+import org.apache.parquet.schema.PrimitiveType;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -26,13 +33,306 @@ import java.io.*;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
+
+import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 
 public class ParquetChunkWriter implements Tool {
     private Configuration conf;
+    private TrackingByteBufferAllocator allocator;
 
 
+    @Override
+    public Configuration getConf() {
+        return conf;
+    }
+
+    @Override
+    public void setConf(Configuration conf) {
+        this.conf = conf;
+    }
+
+    @Override
+    public int run(String[] args) throws Exception {
+        // ClassLoader
+        ClassLoader classLoader=ParquetChunkWriter.class.getClassLoader();
+        URL benchmarkResource=classLoader.getResource("benchmark.json");
+        URL propertiesResource=classLoader.getResource("config.properties");
+
+        // read benchmark.json
+        List<BenchmarkInfo> benchmarkInfos = readBenchmarkInfosFromJson(benchmarkResource.getPath());
+
+        String targetSchemaName="test";
+        BenchmarkInfo foundBenchmarkInfo = findBenchmarkInfoByName(benchmarkInfos, targetSchemaName);
+        // read config.properties
+        Properties properties = readProperties(propertiesResource.getPath());
+
+        long rowGroupSize = Long.parseLong(properties.getProperty("RowGroupSize"));
+        String outputPath = properties.getProperty("OutPutPath");
+        CompressionCodecName compressionCodecName = CompressionCodecName.fromConf(
+                properties.getProperty("Compression"));
+        String encoding = properties.getProperty("Encoding");
+
+        if(foundBenchmarkInfo!=null) {
+            BenchmarkInfo benchmarkInfo=foundBenchmarkInfo;
+            String benchmarkName = benchmarkInfo.getBenchmarkName();
+            String sourcePath = benchmarkInfo.getBenchamrkSourcePaths();
+            Map<String, List<String>> schema = benchmarkInfo.getSchema();
+            Map<String, Integer> numRows = benchmarkInfo.getNumRows();
+
+            // allocator
+            allocator = TrackingByteBufferAllocator.wrap(new HeapByteBufferAllocator());
+
+            for (String tableName : schema.keySet()) {
+                System.out.println("parse tableName:" + tableName);
+                // *.csv *.tbl *.tsv
+                String inputFilePath = getInputFilePath(sourcePath, tableName);
+                long startTime = System.currentTimeMillis();
+                List<String> columnNames=benchmarkInfo.getColumnNames().get(tableName);
+                List<String> columnTyps=benchmarkInfo.getSchema().get(tableName);
+                Integer maxNumRows=benchmarkInfo.getNumRows().get(tableName);
+
+                int counts = 0;
+                int totalCounts=0;
+                int number = 0;
+                String[] columnNamesString = new String[columnNames.size()];
+                String messageTypeString="message "+tableName+" {";
+                for (int i = 0; i < columnNames.size(); i++) {
+                    columnNamesString[i] = columnNames.get(i);
+                    /**
+                     * Notice: the types is Trino-SQL(For example)
+                     * We should convert them to Parquet Logical Types
+                     */
+                    messageTypeString+="optional "+ParquetLocgicalTypes(columnTyps.get(i),columnNames.get(i))+"; ";
+                }
+                messageTypeString+="}";
+//                System.out.println(messageTypeString);
+//                System.out.println(Arrays.toString(columnNamesString));
+//                System.out.println(benchmarkInfo.getDelimiter());
+                System.out.println(inputFilePath);
+                MessageType schemaMessage=parseMessageType(messageTypeString);
+
+
+                try (
+                FileInputStream fis = new FileInputStream(inputFilePath);
+                InputStreamReader isr = new InputStreamReader(fis);
+                BufferedReader reader = new BufferedReader(isr)) {
+                    boolean initParquetWriter=true;
+                    GroupWriteSupport.setSchema(schemaMessage,conf);
+                    SimpleGroupFactory f = new SimpleGroupFactory(schemaMessage);
+
+                    Group group=f.newGroup();
+                    ParquetWriter<Group> writer = null;
+                    String line;
+                    while((line=reader.readLine())!=null){
+                        String[] str=line.split(benchmarkInfo.getDelimiter());
+                        counts++;
+                        totalCounts++;
+                        for(int i=0;i<columnNames.size();i++){
+                            convertValue(group,columnNames.get(i),columnTyps.get(i),str[i]);
+                        }
+
+                        if(initParquetWriter||counts==maxNumRows){
+                            // build ParquetWriter
+                            Path outputFilePath= Paths.get(benchmarkInfo.getOutputPath()+"/"+tableName+"/"+tableName+"_"+number+".parquet");
+                            if(Files.exists(outputFilePath)){
+                                Files.delete(outputFilePath);
+                            }
+                            if(!Files.exists(Paths.get(benchmarkInfo.getOutputPath()))){
+                                Files.createDirectories(Paths.get(benchmarkInfo.getOutputPath()));
+                            }
+                            // Create Parent Path
+                            Path parentPath = Paths.get(benchmarkInfo.getOutputPath()+"/"+tableName);
+                            if (!Files.exists(parentPath)) {
+                                Files.createDirectories(parentPath);
+                            }
+                            number++;
+                            counts=0;
+                            initParquetWriter=false;
+                            System.out.println(outputFilePath);
+                            if(writer!=null){
+                                writer.close();
+                            }
+                            writer=ExampleParquetWriter.builder(new LocalOutputFile(outputFilePath))
+                                    .withAllocator(allocator)
+                                    .withCompressionCodec(CompressionCodecName.UNCOMPRESSED)
+                                    .withDictionaryEncoding(false)
+                                    .withRowGroupSize(256*1024*1024)
+                                    .withPageSize(1024)
+                                    .withValidation(false)
+                                    .withWriterVersion(WriterVersion.PARQUET_2_0)
+                                    .withConf(conf)
+                                    .build();
+                            writer.write(group);
+                            group=f.newGroup();
+                        }
+                        else{
+                            writer.write(group);
+                            group=f.newGroup();
+                        }
+                    }
+                    writer.close();
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException(e);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+
+                System.out.println("Finish convert table " + tableName + " parse counts: " + totalCounts);
+                long endTime = System.currentTimeMillis();
+                long elapsedTime = endTime - startTime;
+                System.out.println("Execution time of the program is " + elapsedTime);
+            }
+
+            allocator.close();
+        }
+        return 0;
+    }
+
+    private String ParquetLocgicalTypes(String columnType, String columnName) {
+        ColumnInfo columnInfo=parseColumnType(columnType);
+
+        switch (columnInfo.columnType){
+            case "boolean":
+                return "boolean "+columnName;
+            case "decimal":
+                return "binary "+columnName+" (DECIMAL("+columnInfo.param1+","+columnInfo.param2+"))";
+//            case "char":
+//            case "varchar":
+//                return "fixed_len_byte_array("+columnInfo.param1+") "+columnName;
+            case "integer":
+            case "int32":
+                return "int32 "+columnName;
+            case "bigint":
+            case "int64":
+                return "int64 "+columnName;
+            case "float":
+                return "float "+columnName;
+            case "double":
+                return "double "+columnName;
+            case "char":
+            case "varchar":
+            case "string":
+                return "binary "+columnName+" (STRING)";
+            case "timestamp":
+                return "int64 "+columnName+" (TIMESTAMP_MILLIS)";
+            case "date":
+                return "int32 "+columnName+" (DATE)";
+            default:
+                return columnType;
+        }
+    }
+
+    private void convertValue(Group group,String columnName,String columnType, String valueStr) {
+        ColumnInfo columnInfo=parseColumnType(columnType);
+//        System.out.println(columnInfo.toString());
+        switch (columnInfo.columnType) {
+            case "date":
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                try {
+                    Date date = sdf.parse(valueStr);
+                    long timestamp = date.getTime();
+                    // data truncation may occur
+                    int intValue = (int) (timestamp & 0xFFFFFFFFL);
+//                    System.out.println("convert int: " + intValue);
+                    group.append(columnName,intValue);
+                } catch (java.text.ParseException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case "int32":
+            case "integer":
+                group.append(columnName, Integer.parseInt(valueStr));
+                break;
+            case "timestamp":
+                SimpleDateFormat sdf_timestamp = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                try{
+                    Date date=sdf_timestamp.parse(valueStr);
+                    long timestamp=date.getTime();
+                    group.append(columnName,timestamp);
+                } catch (java.text.ParseException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case "int64":
+            case "bigint":
+                group.append(columnName, Long.parseLong(valueStr));
+                break;
+            case "float":
+                group.append(columnName,Float.parseFloat(valueStr));
+                break;
+            case "double":
+                group.append(columnName,Double.parseDouble(valueStr));
+                break;
+            case "boolean":
+                group.append(columnName,Boolean.parseBoolean(valueStr));
+                break;
+            case "binary":
+            case "decimal":
+                group.append(columnName, Binary.fromString(valueStr));
+                break;
+            case "fixed_len_byte_array":
+            case "char":
+            case "varchar":
+                group.append(columnName,valueStr);
+                break;
+            default:
+                group.append(columnName,valueStr);
+        }
+    }
+    private BenchmarkInfo findBenchmarkInfoByName(List<BenchmarkInfo> benchmarkInfos, String targetName) {
+        for (BenchmarkInfo benchmarkInfo : benchmarkInfos) {
+            if (benchmarkInfo.getBenchmarkName().equals(targetName)) {
+                return benchmarkInfo;
+            }
+        }
+        return null;
+    }
+
+    private List<BenchmarkInfo> readBenchmarkInfosFromJson(String jsonFilePath) throws IOException {
+        String jsonContent = Files.lines(Paths.get(jsonFilePath)).collect(Collectors.joining());
+        JSONArray jsonArray = new JSONArray(jsonContent);
+        List<BenchmarkInfo> benchmarkInfos = new ArrayList<>();
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject jsonObject = jsonArray.getJSONObject(i);
+            String benchmarkName = jsonObject.getString("benchmarkName");
+            String benchamrkSourcePaths = jsonObject.getString("benchamrkSourcePaths");
+            String outputPath=jsonObject.getString("outputPath");
+            String delimiter=jsonObject.getString("delimiter");
+
+            // schema types
+            JSONObject schemaJson = jsonObject.getJSONObject("schema");
+            Map<String, List<String>> schema = new HashMap<>();
+            for (String key : schemaJson.keySet()) {
+                schema.put(key, Arrays.asList(schemaJson.getJSONArray(key).toList().toArray(new String[0])));
+            }
+            // columnNames
+            JSONObject columnNamesJson =jsonObject.getJSONObject("columnNames");
+            Map<String,List<String>> columnNames=new HashMap<>();
+            for(String key: columnNamesJson.keySet()){
+                columnNames.put(key,Arrays.asList(columnNamesJson.getJSONArray(key).toList().toArray(new String[0])));
+            }
+            JSONObject numRowsJson = jsonObject.getJSONObject("numRows");
+            Map<String, Integer> numRows = new HashMap<>();
+            for (String key : numRowsJson.keySet()) {
+                numRows.put(key, numRowsJson.getInt(key));
+            }
+            benchmarkInfos.add(new BenchmarkInfo(benchmarkName, benchamrkSourcePaths, schema,columnNames, numRows,delimiter,outputPath));
+        }
+        return benchmarkInfos;
+    }
+
+    private Properties readProperties(String propertiesFilePath) throws IOException {
+        Properties properties = new Properties();
+        properties.load(new FileReader(propertiesFilePath));
+        return properties;
+    }
     public static String getInputFilePath(String sourcePath, String tableName) {
         String csvFilePath = sourcePath + File.separator + tableName + File.separator + tableName + ".csv";
         String tblFilePath = sourcePath + File.separator + tableName + File.separator + tableName + ".tbl";
@@ -65,236 +365,45 @@ public class ParquetChunkWriter implements Tool {
         return inputFilePath;
     }
 
-    @Override
-    public Configuration getConf() {
-        return conf;
-    }
+    static class ColumnInfo {
+        String columnType;
+        String param1;
+        String param2;
 
-    @Override
-    public void setConf(Configuration conf) {
-        this.conf = conf;
-    }
-
-    @Override
-    public int run(String[] args) throws Exception {
-        // ClassLoader
-        ClassLoader classLoader=ParquetChunkWriter.class.getClassLoader();
-        URL benchmarkResource=classLoader.getResource("benchmark.json");
-        URL propertiesResource=classLoader.getResource("config.properties");
-
-
-        // 读取benchmark.json文件获取benchmark信息
-        List<BenchmarkInfo> benchmarkInfos = readBenchmarkInfosFromJson(benchmarkResource.getPath());
-
-        String targetSchemaName="test";
-        BenchmarkInfo foundBenchmarkInfo = findBenchmarkInfoByName(benchmarkInfos, targetSchemaName);
-//        Optional<BenchmarkInfo> foundBenchmarkInfoOptional = benchmarkInfos.stream()
-//                .filter(benchmarkInfo -> benchmarkInfo.getBenchmarkName().equals(targetSchemaName))
-//                .findFirst();
-//        if (foundBenchmarkInfoOptional.isEmpty()) {
-//            System.out.println("未找到指定benchmarkName的BenchmarkInfo");
-//        }
-
-        // 读取config.properties文件获取写入参数
-        Properties properties = readProperties(propertiesResource.getPath());
-
-        long rowGroupSize = Long.parseLong(properties.getProperty("RowGroupSize"));
-        String outputPath = properties.getProperty("OutPutPath");
-        CompressionCodecName compressionCodecName = CompressionCodecName.fromConf(
-                properties.getProperty("Compression"));
-        String encoding = properties.getProperty("Encoding");
-
-
-//        foundBenchmarkInfoOptional.ifPresent(benchmarkInfo -> {
-        if(foundBenchmarkInfo!=null) {
-            BenchmarkInfo benchmarkInfo=foundBenchmarkInfo;
-            String benchmarkName = benchmarkInfo.getBenchmarkName();
-            String sourcePath = benchmarkInfo.getBenchamrkSourcePaths();
-            Map<String, List<String>> schema = benchmarkInfo.getSchema();
-            Map<String, Integer> numRows = benchmarkInfo.getNumRows();
-            for (String tableName : schema.keySet()) {
-                System.out.println("parse tableName:" + tableName);
-                // *.csv *.tbl *.tsv
-                String inputFilePath = getInputFilePath(sourcePath, tableName);
-                long startTime = System.currentTimeMillis();
-                List<String> columnNames;
-
-                int counts = 0;
-                columnNames = benchmarkInfo.getColumnNames().get(tableName);
-                String[] columnNamesString = new String[columnNames.size()];
-                for (int i = 0; i < columnNames.size(); i++) {
-                    columnNamesString[i] = columnNames.get(i);
-                }
-                System.out.println(Arrays.toString(columnNamesString));
-                System.out.println(benchmarkInfo.getDelimiter());
-                System.out.println(inputFilePath);
-                try (Reader reader = new FileReader(inputFilePath)) {
-                    Iterable<CSVRecord> records = CSVFormat.DEFAULT.builder()
-                            .setHeader(columnNamesString)
-                            // use different delimiter
-                            .setDelimiter(benchmarkInfo.getDelimiter())
-                            .build().parse(reader);
-
-                    for (CSVRecord record : records) {
-                        counts++;
-                    }
-
-                } catch (FileNotFoundException e) {
-                    throw new RuntimeException(e);
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
-                }
-
-                System.out.println("Finish convert table " + tableName + " parse counts: " + counts);
-                long endTime = System.currentTimeMillis();
-                long elapsedTime = endTime - startTime;
-                System.out.println("Execution time of the program is " + elapsedTime);
-            }
+        public ColumnInfo(String columnType, String param1, String param2) {
+            this.columnType = columnType;
+            this.param1 = param1;
+            this.param2 = param2;
         }
-//        });
 
-
-//            String benchmarkName = benchmarkInfo.getBenchmarkName();
-//            String sourcePath = benchmarkInfo.getBenchamrkSourcePaths();
-//            Map<String, List<String>> schema = benchmarkInfo.getSchema();
-//            Map<String, Integer> numRows = benchmarkInfo.getNumRows();
-//
-//            for (String tableName : schema.keySet()) {
-//                // *.csv *.tbl *.tsv
-//                String inputFilePath=getInputFilePath(sourcePath,tableName);
-//                long startTime=System.currentTimeMillis();
-//
-//                columnNames=benchmarkInfo.getColumnNames();
-//                try(Reader reader=new FileReader(inputFilePath)){
-//                    Iterable<CSVRecord> records=CSVFormat.DEFAULT.builder()
-//                            .setHeader()
-//                            // use different delimiter
-//                            .setDelimiter(benchmarkInfo.getDelimiter())
-//                            .build().parse(reader);
-//                    for(CSVRecord record:records){
-//
-//                    }
-//
-//                }
-//                System.out.println("Finish convert table "+tableName);
-//                long endTime=System.currentTimeMillis();
-//                long elapsedTime=endTime-startTime;
-//                System.out.println("Execution time of the program is "+elapsedTime);
-//
-//                // 解析CSV文件头部获取列名（假设CSV文件有头部）
-//                CSVFormat csvFormat = CSVFormat.DEFAULT.withHeader();
-//                try (CSVParser csvParser = CSVParser.parse(String.valueOf(new File(inputFilePath)), csvFormat)) {
-//                    List<String> headerList = csvParser.getHeaderNames();
-//
-//                    // 构建Parquet文件的模式（schema）信息
-//                    MessageType.Builder messageTypeBuilder = MessageTypeParser.parseMessageType("message " + tableName + " {")
-//                            .toBuilder();
-//                    for (String header : headerList) {
-//                        // 简单示例，都当作字符串类型处理，实际需完善类型映射
-//                        messageTypeBuilder.addField(header, org.apache.parquet.schema.Types.primitive("UTF8"));
-//                    }
-//                    MessageType messageType = messageTypeBuilder.named(tableName);
-//                    GroupWriteSupport.setSchema(messageType, conf);
-//
-//                    // 构建Parquet文件输出路径（根据需求调整命名等）
-//                    String parquetFilePath = outputPath + File.separator + benchmarkName + "_" + tableName + ".parquet";
-//
-//                    // 创建ParquetWriter
-//                    ExampleParquetWriter.Builder<Group> builder = ExampleParquetWriter.builder(new LocalOutputFile(new Path(parquetFilePath)))
-//                            .withRowGroupSize(rowGroupSize)
-//                            .withCompressionCodec(compressionCodecName)
-//                            .withWriterVersion(WriterVersion.PARQUET_1_0)
-//                            .withConf(conf)
-//                            .withParquetProperties(new ParquetProperties(encoding));
-//
-//                    // 分块读取和写入
-//                    int rowIndex = 0;
-//                    int blockIndex = 0;
-//                    int fileIndex = 0;
-//                    try (ExampleParquetWriter<Group> writer = builder.build()) {
-//                        for (CSVRecord record : csvParser) {
-//                            if (rowIndex % numRows.get(tableName) == 0 && rowIndex > 0) {
-//                                blockIndex++;
-//                            }
-//                            if (rowIndex % (numRows.get(tableName) * rowGroupSize) == 0 && rowIndex > 0) {
-//                                fileIndex++;
-//                                blockIndex = 0;
-//                                writer.close();
-//                                // 重新构建ParquetWriter，创建新文件用于写入
-//                                builder = ExampleParquetWriter.builder(new LocalOutputFile(new Path(parquetFilePath + "." + fileIndex)))
-//                                        .withRowGroupSize(rowGroupSize)
-//                                        .withCompressionCodec(compressionCodecName)
-//                                        .withWriterVersion(WriterVersion.PARQUET_1_0)
-//                                        .withConf(conf)
-//                                        .withParquetProperties(new ParquetProperties(encoding));
-//                                writer = builder.build();
-//                            }
-//                            // 构建写入Parquet的记录（需根据实际完善）
-//                            Group group = createGroupFromRecord(record, headerList, rowIndex, blockIndex, fileIndex);
-//                            writer.write(group);
-//                            rowIndex++;
-//                        }
-//                    }
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-
-
-        return 0;
-    }
-    private BenchmarkInfo findBenchmarkInfoByName(List<BenchmarkInfo> benchmarkInfos, String targetName) {
-        for (BenchmarkInfo benchmarkInfo : benchmarkInfos) {
-            if (benchmarkInfo.getBenchmarkName().equals(targetName)) {
-                return benchmarkInfo;
-            }
+        @Override
+        public String toString() {
+            return "ColumnInfo{" +
+                    "columnType='" + columnType + '\'' +
+                    ", param1='" + param1 + '\'' +
+                    ", param2='" + param2 + '\'' +
+                    '}';
         }
-        return null; // 如果没找到则返回null
     }
-    private Group createGroupFromRecord(CSVRecord record, List<String> headerList, int rowIndex, int blockIndex, int fileIndex) {
-        // 这里要根据实际Parquet写入数据结构和逻辑完善
-        // 简单示例，创建一个Group对象并填充数据，假设使用相关Parquet写入API
-        // 此处代码需替换为符合你实际情况的逻辑
-        return null;
-    }
+    private  ColumnInfo parseColumnType(String columnType) {
+        String columnTypeName = columnType;
+        String param1 = "";
+        String param2 = "";
 
-    private List<BenchmarkInfo> readBenchmarkInfosFromJson(String jsonFilePath) throws IOException {
-        String jsonContent = Files.lines(Paths.get(jsonFilePath)).collect(Collectors.joining());
-        JSONArray jsonArray = new JSONArray(jsonContent);
-        List<BenchmarkInfo> benchmarkInfos = new ArrayList<>();
-        for (int i = 0; i < jsonArray.length(); i++) {
-            JSONObject jsonObject = jsonArray.getJSONObject(i);
-            String benchmarkName = jsonObject.getString("benchmarkName");
-            String benchamrkSourcePaths = jsonObject.getString("benchamrkSourcePaths");
-            String delimiter=jsonObject.getString("delimiter");
-
-            // schema types
-            JSONObject schemaJson = jsonObject.getJSONObject("schema");
-            Map<String, List<String>> schema = new HashMap<>();
-            for (String key : schemaJson.keySet()) {
-                schema.put(key, Arrays.asList(schemaJson.getJSONArray(key).toList().toArray(new String[0])));
+        Pattern pattern = Pattern.compile("\\((.*?)\\)");
+        Matcher matcher = pattern.matcher(columnType);
+        if (matcher.find()) {
+            String[] params = matcher.group(1).split(",");
+            if (params.length > 0) {
+                param1 = params[0].trim();
             }
-            // columnNames
-            JSONObject columnNamesJson =jsonObject.getJSONObject("columnNames");
-            Map<String,List<String>> columnNames=new HashMap<>();
-            for(String key: columnNamesJson.keySet()){
-                columnNames.put(key,Arrays.asList(columnNamesJson.getJSONArray(key).toList().toArray(new String[0])));
+            if (params.length > 1) {
+                param2 = params[1].trim();
             }
-            JSONObject numRowsJson = jsonObject.getJSONObject("numRows");
-            Map<String, Integer> numRows = new HashMap<>();
-            for (String key : numRowsJson.keySet()) {
-                numRows.put(key, numRowsJson.getInt(key));
-            }
-
-            benchmarkInfos.add(new BenchmarkInfo(benchmarkName, benchamrkSourcePaths, schema,columnNames, numRows,delimiter));
+            columnTypeName = columnType.substring(0, columnType.indexOf('(')).trim();
         }
-        return benchmarkInfos;
-    }
 
-    private Properties readProperties(String propertiesFilePath) throws IOException {
-        Properties properties = new Properties();
-        properties.load(new FileReader(propertiesFilePath));
-        return properties;
+        return new ColumnInfo(columnTypeName, param1, param2);
     }
 
     public static void main(String[] args) throws Exception {

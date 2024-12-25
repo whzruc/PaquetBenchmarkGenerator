@@ -16,7 +16,13 @@ import org.apache.hadoop.conf.Configuration;
 //import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ParquetProperties.WriterVersion;
 import org.apache.parquet.hadoop.example.GroupWriteSupport;
-
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import java.io.File;
+import java.io.IOException;
 import org.apache.parquet.schema.MessageTypeParser;
 //import org.junit.After;
 //import org.junit.Before;
@@ -81,23 +87,8 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         System.out.println("Hello world!");
-//        initAllocator();
-//        test();
-//        closeAllocator();
-//        ParquetChunkWriter parquetChunkWriter=new ParquetChunkWriter();
-//        parquetChunkWriter.run();
+        initAllocator();
+        test();
+        closeAllocator();
     }
-
-
-//    private MessageType getSchemaForParqueFile() throws IOException{
-//        File resoure= new File(schemaFilePath);
-//        String rawSchema= new String(Files.readAllBytes(resoure.toPath()));
-//        return MessageTypeParser.parseMessageType(rawSchema);
-//    }
-//    private Group getWriteGroup(SimpleGroupFactory f){
-//        return f.newGroup().append("test_field",1);
-//    }
-
-
-
 }
