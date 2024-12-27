@@ -120,6 +120,7 @@ fields = [
 ]
 
 
+converted_names=[field[0] for field in fields]
 converted_types = [field_types.get(field[1], field[1]) for field in fields]
 
 
@@ -128,6 +129,14 @@ output = {
         "hits": converted_types
     }
 }
+print(converted_names)
 print(converted_types)
 
+output_names={
+    "columnNames":{
+        "hits":converted_names
+    }
+}
+
+print(json.dumps(output_names,indent=2))
 print(json.dumps(output, indent=2))

@@ -5,10 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f64af2e6-f560-4979-bc4a-e442bd193a04" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README-zn.md" beforeDir="false" afterPath="$PROJECT_DIR$/README-zn.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/convert.py" beforeDir="false" afterPath="$PROJECT_DIR$/convert.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/benchmark.json" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/benchmark.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -89,7 +90,7 @@
       <window_info id="Commit_Guest" show_stripe_button="false" />
       <window_info id="Pull Requests" />
       <window_info id="Learn" />
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.21660157" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.13691406" />
       <window_info id="Commit" order="1" weight="0.25" />
       <window_info id="Structure" order="2" side_tool="true" weight="0.25" />
       <window_info anchor="bottom" id="Database Changes" />
@@ -100,10 +101,10 @@
       <window_info anchor="bottom" id="Version Control" order="0" />
       <window_info anchor="bottom" id="Problems" order="1" />
       <window_info anchor="bottom" id="Problems View" order="2" />
-      <window_info anchor="bottom" id="Terminal" order="3" weight="0.40728945" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="3" visible="true" weight="0.021585278" />
       <window_info anchor="bottom" id="Build" order="4" weight="0.40728945" />
-      <window_info anchor="bottom" id="Debug" order="5" weight="0.618896" />
-      <window_info active="true" anchor="bottom" x="-136" y="1209" width="2478" height="243" id="Run" order="6" visible="true" weight="0.5212314" />
+      <window_info anchor="bottom" id="Debug" order="5" weight="0.59907997" />
+      <window_info anchor="bottom" x="-136" y="1209" width="2478" height="243" id="Run" order="6" weight="0.4249823" />
       <window_info anchor="bottom" id="Services" order="7" />
       <window_info anchor="right" id="Endpoints" />
       <window_info anchor="right" id="Coverage" side_tool="true" />
@@ -112,7 +113,7 @@
       <window_info anchor="right" id="AIAssistant" order="1" weight="0.25" />
       <window_info anchor="right" id="Database" order="2" weight="0.25" />
       <window_info anchor="right" id="Gradle" order="3" weight="0.25" />
-      <window_info active="true" anchor="right" id="Maven" order="4" visible="true" weight="0.011914062" />
+      <window_info anchor="right" id="Maven" order="4" weight="0.023828125" />
     </layout>
   </component>
   <component name="RecentsManager">
@@ -216,7 +217,8 @@
       <workItem from="1735002271675" duration="35848000" />
       <workItem from="1735095296430" duration="1338000" />
       <workItem from="1735097107406" duration="8751000" />
-      <workItem from="1735111481682" duration="11073000" />
+      <workItem from="1735111481682" duration="19616000" />
+      <workItem from="1735199060811" duration="21566000" />
     </task>
     <servers />
   </component>
@@ -232,18 +234,8 @@
         </breakpoint>
         <line-breakpoint enabled="true" type="java-line">
           <url>file://$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java</url>
-          <line>291</line>
-          <option name="timeStamp" value="9" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java</url>
-          <line>330</line>
-          <option name="timeStamp" value="11" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="java-line">
-          <url>file://$PROJECT_DIR$/src/main/java/org/example/MultiThreadFileProcessing.java</url>
-          <line>399</line>
-          <option name="timeStamp" value="12" />
+          <line>236</line>
+          <option name="timeStamp" value="13" />
         </line-breakpoint>
       </breakpoints>
     </breakpoint-manager>
