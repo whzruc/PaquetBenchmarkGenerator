@@ -1,4 +1,4 @@
-# ParquetWriter
+# PaquetBenchmarkGenerator
 This project aims to generate Parquet data files for TPC-H and ClickBench datasets using parquet-java.
 The ParquetWriter in pyarrow.parquet depends on pyarrow-cpp, which is outdated and does not support specifying rowGroupSize.
 
